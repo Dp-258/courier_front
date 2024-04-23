@@ -1,0 +1,154 @@
+<script setup>
+import { ref } from 'vue'
+import userDashboardTableBaseLayout from './userDashboardTableBaseLayout.vue'
+const props = defineProps(['sidebarActive']);
+const searchParams = ref('store');
+const setSearchParams = (params) => [
+    searchParams.value = params
+]
+</script>
+<template>
+    <div>
+        <div class="text-2xl font-bold flex items-center">
+            <div>
+                ¡Bienvenido a SwiftShip!
+            </div>
+            <div onclick="virtual_locker.showModal()" class="flex items-center ml-auto bg-amber-400 p-2 rounded-xl cursor-pointer
+            transition-all duration-200 hover:scale-105 hover:shadow-xl">
+                <div class="text-base font-medium">
+                    <i class="fa-solid fa-box fa-sm ml-2"></i>
+                    Tu casillero virtual: HFC03685
+                </div>
+            </div>
+        </div>
+        <div class="text-base mb-5">
+            Estos son <span class="font-medium">tus paquetes</span>
+        </div>
+        <!-- Search bar -->
+        <form class="flex items-center w-3/6 min-w-[420px]">
+            <div class="flex w-full">
+                <input type="text" id="voice-search"
+                    class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-l-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-5 p-2.5"
+                    placeholder="Buscar en el directorio paquete por código..." required>
+                <div class="cursor-pointer bg-gray-200 border border-gray-300 focus:ring-blue-500 focus:border-blue-500 rounded-r-lg px-3 content-center">
+                    <i class="fa-solid fa-magnifying-glass text-black"></i>
+                </div>
+            </div>
+        </form>
+        <br>
+        <div class="grid gap-4 mb-5"
+            :class="{ 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4': props.sidebarActive, 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4 ': !props.sidebarActive }">
+            <div @click="setSearchParams('store')" class="pt-3 pb-3 px-4 bg-white border border-gray-200 rounded-lg shadow transition ease-in-out duration-200 cursor-pointer
+            hover:scale-105 hover:-translate-y-2 hover:shadow-amber-500"
+            :class="{'shadow-amber-500': searchParams == 'store'}">
+                <div class="flex place-content-evenly mb-2 items-center">
+                    <div class="h-12 rounded-full bg-white border border-amber-600 flex justify-center items-center"
+                        :class="{ 'w-14 ': props.sidebarActive, 'w-12 mr-2': !props.sidebarActive }">
+                        <i class="fa-solid fa-warehouse fa-lg text-amber-600"></i>
+                    </div>
+                    <h5 class="mb-2 text-xl leading-10 font-semibold tracking-tight text-gray-900 text-center">
+                        Paquetes en bodega
+                    </h5>
+                </div>
+                <p class="text-2xl font-bold text-black text-center mb-2">
+                    25
+                </p>
+            </div>
+            <div @click="setSearchParams('sent')" class="pt-3 pb-3 px-4 bg-white border border-gray-200 rounded-lg shadow transition ease-in-out duration-200 cursor-pointer
+            hover:scale-105 hover:-translate-y-2 hover:shadow-amber-500"
+            :class="{'shadow-amber-500': searchParams == 'sent'}">
+                <div class="flex place-content-evenly mb-2 items-center">
+                    <div class="h-12 rounded-full bg-white border border-amber-600 flex justify-center items-center"
+                        :class="{ 'w-14 ': props.sidebarActive, 'w-12 mr-2': !props.sidebarActive }">
+                        <i class="fa-solid fa-plane-departure fa-lg text-amber-600"></i>
+                    </div>
+                    <h5 class="mb-2 text-xl leading-10 font-semibold tracking-tight text-gray-900 text-center">
+                        Enviados a Ecuador
+                    </h5>
+                </div>
+                <p class="text-2xl font-bold text-black text-center mb-2">
+                    2
+                </p>
+            </div>
+            <div @click="setSearchParams('aduana')" class="pt-3 pb-3 px-4 bg-white border border-gray-200 rounded-lg shadow transition ease-in-out duration-200 cursor-pointer 
+            hover:scale-105 hover:-translate-y-2 hover:shadow-amber-500"
+            :class="{'shadow-amber-500': searchParams == 'aduana'}">
+                <div class="flex place-content-evenly mb-2 items-center">
+                    <div class="h-12 rounded-full bg-white border border-amber-600 flex justify-center items-center"
+                        :class="{ 'w-14 ': props.sidebarActive, 'w-12 mr-2': !props.sidebarActive }">
+                        <i class="fa-solid fa-passport fa-lg text-amber-600"></i>
+                    </div>
+                    <h5 class="mb-2 text-xl leading-10 font-semibold tracking-tight text-gray-900 text-center">
+                        Paquetes en aduana
+                    </h5>
+                </div>
+                <p class="text-2xl font-bold text-black text-center mb-2">
+                    0
+                </p>
+            </div>
+            <div @click="setSearchParams('onway')" class="pt-3 pb-3 px-4 bg-white border border-gray-200 rounded-lg shadow transition ease-in-out duration-200 cursor-pointer 
+            hover:scale-105 hover:-translate-y-2 hover:shadow-amber-500"
+            :class="{'shadow-amber-500': searchParams == 'onway'}">
+                <div class="flex place-content-evenly mb-2 items-center">
+                    <div class="h-12 rounded-full bg-white border border-amber-600 flex justify-center items-center"
+                        :class="{ 'w-14 ': props.sidebarActive, 'w-12 mr-2': !props.sidebarActive }">
+                        <i class="fa-solid fa-people-carry-box fa-lg text-amber-600"></i>
+                    </div>
+                    <h5 class="mb-2 text-xl leading-10 font-semibold tracking-tight text-gray-900 text-center">
+                        Paquetes en entrega
+                    </h5>
+                </div>
+                <p class="text-2xl font-bold text-black text-center mb-2">
+                    2
+                </p>
+            </div>
+        </div>
+
+        <div>
+            <h1 class="text-xl font-semibold mb-4">
+                {{ searchParams == 'store' ? 'En bodega' :  
+                searchParams == 'sent' ? 'En transito' :
+                searchParams == 'aduana' ? 'En aduana' :
+                searchParams == 'onway' ? 'Enviado a domicilio' :
+                'No registrado' }}
+            </h1>
+        </div>
+        <div>
+            <userDashboardTableBaseLayout :params="searchParams" />
+        </div>
+
+
+    </div>
+    <!--Modals-->
+    <!--Virtual locker modal-->
+    <dialog id="virtual_locker" class="modal">
+        <div class="modal-box w-10/12 max-w-2xl">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+            </form>
+            <div class="flex items-center text-center justify-center">
+                <i class="fa-solid fa-box fa-xl text-amber-600 mr-5"></i>
+                <h3 class="font-bold text-2xl">Este es tu casillero vitual</h3>
+                <i class="fa-solid fa-box fa-xl text-amber-600 ml-5"></i>
+            </div>
+            <p class="py-4">
+                Recuerda que al comprar en línea te pedirán una dirección en Estados Unidos para enviar tu paquete,
+                deberás llenar la información de envió con los siguientes datos:
+            </p>
+            <div class="text-center w-full flex justify-center">
+                <div class="text-center py-4 border border-gray-300 px-4 w-fit">
+                    <span>Eduardo Gonzales <span class="font-bold">HFC03685</span></span>
+                    <br>
+                    <span>101, County Road 447, Misuri, Douglas County</span>
+                    <br>
+                    <span>357-212-5814</span>
+                    <br>
+                </div>
+            </div>
+        </div>
+        <!--Btn para cerrar-->
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
+        </form>
+    </dialog>
+</template>

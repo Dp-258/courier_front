@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Swift Ship</title>
+  <script src="https://kit.fontawesome.com/a80632ba2b.js"></script>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>
+<style>
+  /*ESTILOS DE TRANSITIONS*/
+  .fadeTable-enter-active,
+  .fadeTable-leave-active {
+    transition: opacity 2.5s ease;
+  }
+
+  .fadeTable-enter-from,
+  .fadeTable-leave-to {
+    opacity: 0;
+    transition: opacity 0.01s ease;
+  }
+
+  .slide-rigth-enter-active{
+        transition: all 0.5s ease;
+    }
+    .slide-rigth-enter {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+</style>
