@@ -9,33 +9,20 @@ const setSearchParams = (params) => [
 </script>
 <template>
     <div>
-        <div class="text-2xl font-bold flex items-center">
-            <div>
-                ¡Bienvenido a SwiftShip!
-            </div>
-            <div onclick="virtual_locker.showModal()" class="flex items-center ml-auto bg-amber-400 p-2 rounded-xl cursor-pointer
+        <div class="text-2xl flex items-center">
+        <div>
+            <i class="fa-solid fa-box mr-2"></i>
+            <span class="font-bold">Tus paquetes</span>
+        </div>
+        <div onclick="virtual_locker.showModal()" class="flex items-center ml-auto bg-amber-400 p-2 rounded-xl cursor-pointer
             transition-all duration-200 hover:scale-105 hover:shadow-xl">
-                <div class="text-base font-medium">
-                    <i class="fa-solid fa-box fa-sm ml-2"></i>
-                    Tu casillero virtual: HFC03685
-                </div>
+            <div class="text-base font-medium">
+                <i class="fa-solid fa-box fa-sm ml-2"></i>
+                Tu casillero virtual: HFC03685
             </div>
         </div>
-        <div class="text-base mb-5">
-            Estos son <span class="font-medium">tus paquetes</span>
-        </div>
-        <!-- Search bar -->
-        <form class="flex items-center w-3/6 min-w-[420px]">
-            <div class="flex w-full">
-                <input type="text" id="voice-search"
-                    class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-l-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-5 p-2.5"
-                    placeholder="Buscar en el directorio paquete por código..." required>
-                <div class="cursor-pointer bg-gray-200 border border-gray-300 focus:ring-blue-500 focus:border-blue-500 rounded-r-lg px-3 content-center">
-                    <i class="fa-solid fa-magnifying-glass text-black"></i>
-                </div>
-            </div>
-        </form>
-        <br>
+    </div>
+    <br>
         <div class="grid gap-4 mb-5"
             :class="{ 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4': props.sidebarActive, 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4 ': !props.sidebarActive }">
             <div @click="setSearchParams('store')" class="pt-3 pb-3 px-4 bg-white border border-gray-200 rounded-lg shadow transition ease-in-out duration-200 cursor-pointer

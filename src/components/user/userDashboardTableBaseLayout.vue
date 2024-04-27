@@ -16,19 +16,19 @@ watch(() => props.params, () => {
             <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                 <tr>
                     <th scope="col" class="px-6 py-3">
-                        Product name
+                        Codigo
                     </th>
                     <th scope="col" class="px-6 py-3">
-                        Color
+                        Estatus
                     </th>
                     <th scope="col" class="px-6 py-3">
-                        Category
+                        Peso
                     </th>
                     <th scope="col" class="px-6 py-3">
-                        Price
+                        Valor declarado
                     </th>
-                    <th scope="col" class="text-center py-3">
-                        Action
+                    <th scope="col" class="px-6 py-3 text-center">
+                        Detalle
                     </th>
                 </tr>
             </thead>

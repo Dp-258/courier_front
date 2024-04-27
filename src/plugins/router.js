@@ -32,6 +32,24 @@ const routes = [
                 props: true
             },
             {
+                path: '/listPackages',
+                name: 'listPackages',
+                component: () => import('@/components/admin/listOfPackages.vue'),
+                props: true
+            },
+            {
+                path: '/employeeAdmin',
+                name: 'employeeAdmin',
+                component: () => import('@/components/admin/employeeAdmin.vue'),
+                props: true
+            },
+            {
+                path: '/reports',
+                name: 'reports',
+                component: () => import('@/components/admin/reports.vue'),
+                props: true
+            },
+            {
                 path: '/userPrealerts',
                 name: 'userPrealerts',
                 component: () => import('@/components/user/userPrealerts.vue'),
