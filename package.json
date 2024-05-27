@@ -9,9 +9,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "chart.js": "^3.0.0",
+    "firebase": "^10.11.1",
     "pinia": "^2.1.7",
     "sweetalert2": "^11.10.8",
-    "vue": "^3.4.21"
+    "uuidv4": "^6.2.13",
+    "vue": "^3.4.21",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.4",

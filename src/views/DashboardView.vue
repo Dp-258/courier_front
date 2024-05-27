@@ -1,15 +1,80 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onBeforeMount, onMounted } from 'vue'
+import { useUserStore } from "@/stores/user.js";
 import { RouterView, RouterLink, useRouter } from "vue-router";
+import Swal from "sweetalert2";
 
+const router = useRouter();
 const showDropDown = ref(false);
 const showSide = ref(true);
+const userStore = useUserStore();
+const isStaff = ref(false);
+const role = ref(false);
+
+onBeforeMount(async () => {
+  try {
+    await userStore.getUserInfo();
+  } catch (error) {
+    if (error) {
+      console.error('Error de autenticación:', error.message);
+      Swal.fire({
+        title: "Error de autenticación",
+        text: "Tiempo de sesión expirado, vuelva a iniciar su sesión",
+        icon: "error",
+      });
+      router.push({ path: '/login' })
+    } else {
+      console.error('Error al realizar la solicitud:', error.message);
+      router.push({ path: '/login' })
+    }
+    userStore.userData = null;
+    userStore.email = null;
+    userStore.jwt = null;
+  }
+  console.log('Inicializaciones realizadas');
+})
+
+
+const signOut = async () => {
+  await fetch('http://127.0.0.1:3000/logout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+  });
+  
+  if(userStore.role == 'client')
+    router.replace({ path: "/login" })
+  else
+    router.replace({path:'/loginEmployee'})
+  
+  userStore.userData = null;
+  userStore.email = null;
+  userStore.jwt = null;
+  userStore.role = null;
+}
 
 const toggleSideBar = () => {
   showSide.value = !showSide.value
 }
 const toggleDrop = () => {
   showDropDown.value = !showDropDown.value
+}
+
+const printRole = (rol) =>{
+  if(userStore.userData){
+    if(userStore.userData.is_staff)
+      return 'Admin'
+    
+    if(rol == 'client')
+      return 'Cliente';
+    else
+      return 'Empleado';
+  }
+}
+
+const getName = (name) =>{
+  if(name)
+    return name.first_names
 }
 </script>
 <template>
@@ -25,48 +90,57 @@ const toggleDrop = () => {
       <div class="bg-gray-900 py-[20px]" style="height: -webkit-fill-available;">
         <div class="flex flex-col justify-between h-[83vh] px-[20px] space-y-[10px]">
           <div class=" flex flex-col justify-between space-y-[10px]">
-            <router-link to="/adminPackages"
+            <router-link v-if="userStore.role == 'employee'" to="/adminPackages"
               class="inline-flex relative items-center py-[10px] px-[10px] w-full text-sm font-medium rounded-md border-gray-200 hover:bg-gray-200 hover:text-gray-800  transition duration-400 ease-in-out">
-              <i class="fa-solid fa-boxes-packing fa-xl mr-2 w-[25px] h-[25px] fill-current content-center text-center"></i>
+              <i
+                class="fa-solid fa-boxes-packing fa-xl mr-2 w-[25px] h-[25px] fill-current content-center text-center"></i>
               Clasificación de paquetes
             </router-link>
-            <router-link to="/userDashboard"
-              class="inline-flex relative items-center py-[10px] px-[10px] w-full text-sm font-medium rounded-md border-gray-200 hover:bg-gray-300  hover:text-gray-800 transition duration-400 ease-in-out">
-              <i class="fa-solid fa-box fa-xl mr-2 w-[25px] h-[25px] fill-current content-center text-center"></i>
-              Mis paquetes
-            </router-link>
-            <router-link to="/userPrealerts"
+            <router-link v-if="userStore.role == 'client'" to="/userPrealerts"
               class="inline-flex relative items-center py-[10px] px-[10px] w-full text-sm font-medium rounded-md border-gray-200 hover:bg-gray-300  hover:text-gray-800 transition duration-400 ease-in-out">
               <i class="fa-regular fa-bell fa-xl mr-2 w-[25px] h-[25px] fill-current content-center text-center"></i>
               Mis prealertas
             </router-link>
-            <router-link to="/listPackages"
+            <router-link v-if="userStore.role == 'client'" to="/userDashboard"
+              class="inline-flex relative items-center py-[10px] px-[10px] w-full text-sm font-medium rounded-md border-gray-200 hover:bg-gray-300  hover:text-gray-800 transition duration-400 ease-in-out">
+              <i class="fa-solid fa-box fa-xl mr-2 w-[25px] h-[25px] fill-current content-center text-center"></i>
+              Mis paquetes
+            </router-link>
+            <router-link v-if="userStore.role == 'client'" to="/listUserPackages"
               class="inline-flex relative items-center py-[10px] px-[10px] w-full text-sm font-medium rounded-md rounded-b-lg hover:bg-gray-300  hover:text-gray-800 transition duration-400 ease-in-out">
-              <i class="fa-solid fa-boxes-stacked fa-xl mr-2 w-[25px] h-[25px] fill-current content-center text-center"></i>
+              <i
+                class="fa-solid fa-boxes-stacked fa-xl mr-2 w-[25px] h-[25px] fill-current content-center text-center"></i>
               Historial de paquetes
             </router-link>
-            <router-link to="/employeeAdmin"
+            <router-link v-if="userStore.role == 'employee'" to="/listPackages"
               class="inline-flex relative items-center py-[10px] px-[10px] w-full text-sm font-medium rounded-md rounded-b-lg hover:bg-gray-300  hover:text-gray-800 transition duration-400 ease-in-out">
-              <i class="fa-solid fa-users-gear fa-xl mr-2 w-[25px] h-[25px] fill-current content-center text-center"></i>
-              Adminstración de empleados
+              <i
+                class="fa-solid fa-boxes-stacked fa-xl mr-2 w-[25px] h-[25px] fill-current content-center text-center"></i>
+              Historial de paquetes
             </router-link>
-            <router-link to="/reports"
+            <router-link v-if="userStore.role == 'employee' && userStore.userData.is_staff == true" to="/employeeAdmin"
+              class="inline-flex relative items-center py-[10px] px-[10px] w-full text-sm font-medium rounded-md rounded-b-lg hover:bg-gray-300  hover:text-gray-800 transition duration-400 ease-in-out">
+              <i
+                class="fa-solid fa-users-gear fa-xl mr-2 w-[25px] h-[25px] fill-current content-center text-center"></i>
+              Administración de empleados
+            </router-link>
+            <router-link v-if="userStore.role == 'employee' && userStore.userData.is_staff == true" to="/reports"
               class="inline-flex relative items-center py-[10px] px-[10px] w-full text-sm font-medium rounded-md rounded-b-lg hover:bg-gray-300  hover:text-gray-800 transition duration-400 ease-in-out">
               <i class="fa-solid fa-square-poll-vertical fa-xl mr-2 w-[25px] h-[25px] fill-current content-center text-center"></i>
               Generación de informes
             </router-link>
+            <router-link v-if="userStore.role == 'employee' && userStore.userData.is_staff == true" to="/partners"
+              class="inline-flex relative items-center py-[10px] px-[10px] w-full text-sm font-medium rounded-md rounded-b-lg hover:bg-gray-300  hover:text-gray-800 transition duration-400 ease-in-out">
+              <i class="fa-solid fa-handshake fa-xl mr-2 w-[25px] h-[25px] fill-current content-center text-center"></i>
+              Administración de socios
+            </router-link>
 
           </div>
-          <div>
-            <router-link to="/setting"
+          <div @click="signOut">
+            <router-link to="/"
               class="inline-flex relative items-center py-[10px] px-[10px] w-full text-sm font-medium rounded-md border-gray-200 hover:bg-gray-300 hover:text-gray-800  transition duration-400 ease-in-out">
-              <svg aria-hidden="true" class="mr-2 w-[25px] h-[25px] fill-current" fill="currentColor"
-                viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                <path fill-rule="evenodd"
-                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z"
-                  clip-rule="evenodd"></path>
-              </svg>
-              Setting
+              <i class="fa-solid fa-door-open fa-xl mr-2 w-[25px] h-[25px] fill-current content-center text-center"></i>
+              Cerrar sesión
             </router-link>
           </div>
         </div>
@@ -74,7 +148,8 @@ const toggleDrop = () => {
     </div>
     <div class="min-w-[261px]" v-show="showSide">sasd</div>
     <div class="w-full h-full bg-gray-400">
-      <div class="h-[50px] bg-gray-100 flex items-center shadow-sm px-[20px] w-full py-[10px] z-10 border-b space-between">
+      <div
+        class="h-[50px] bg-gray-100 flex items-center shadow-sm px-[20px] w-full py-[10px] z-10 border-b space-between">
         <!-- Hambuger menu -->
         <div class="cursor-pointer w-[30px]" @click="toggleSideBar">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class=" w-[25px] h-[25px]">
@@ -91,8 +166,8 @@ const toggleDrop = () => {
               <i class="fa-solid fa-user"></i>
             </div>
             <div class="font-semibold dark:text-white text-left">
-              <div>Louise Madona</div>
-              <div class="text-xs text-gray-500 dark:text-gray-400">Admin</div>
+              <div>{{getName(userStore.userData)}}</div>
+              <div class="text-xs text-gray-500 dark:text-gray-400">{{printRole(userStore.role)}}</div>
             </div>
           </div>
           <!-- Drop down -->
@@ -100,16 +175,10 @@ const toggleDrop = () => {
             class="absolute right-[10px] z-10 mt-2 mr-5 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
             role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
             <div class="py-1 text-left" role="none">
-              <a href="#" class="text-gray-700 block px-4 py-2 text-sm hover:bg-slate-800 hover:text-white"
-                role="menuitem" tabindex="-1" id="menu-item-0">Account settings</a>
-              <a href="#" class="text-gray-700 block px-4 py-2 text-sm hover:bg-slate-800 hover:text-white"
-                role="menuitem" tabindex="-1" id="menu-item-1">Support</a>
-              <a href="#" class="text-gray-700 block px-4 py-2 text-sm hover:bg-slate-800 hover:text-white"
-                role="menuitem" tabindex="-1" id="menu-item-2">License</a>
-              <form>
-                <button type="submit"
+              <form @click="signOut">
+                <button
                   class="text-gray-700 block w-full px-4 py-2 text-left text-sm hover:bg-slate-800 hover:text-white"
-                  role="menuitem" tabindex="-1" id="menu-item-3">Sign out</button>
+                  role="menuitem" tabindex="-1" id="menu-item-3">Cerrar sesión</button>
               </form>
             </div>
           </div>

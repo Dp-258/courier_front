@@ -4,7 +4,8 @@ import { ref } from 'vue';
 import Swal from "sweetalert2";
 import { useRouter } from "vue-router";
 
-const name = ref(null);
+const names = ref(null);
+const last_names = ref(null);
 const idDoc = ref(null);
 const email = ref(null);
 const password = ref(null);
@@ -17,10 +18,10 @@ const handleSubmit = () => {
     // Llama a la función register del almacén
 };
 
-const validateFields = () => {
+const validateFields = async () => {
 
-    if (name.value !== null && idDoc.value !== '' && email.value !== null && password.value !== null && v_pass.value !== null) {
-        
+    if (names.value !== null && last_names.value !== null && idDoc.value !== '' && email.value !== null && password.value !== null && v_pass.value !== null) {
+
         if (!checkEmail(email.value)) {
             console.log("Error: Por favor, proporcione un correo electrónico valido");
             Swal.fire({
@@ -46,12 +47,23 @@ const validateFields = () => {
             });
             return false;
         } else if (password.value === v_pass.value && policyAccepted.value) {
-            console.log("Success: Usuario creado");
-            Swal.fire({
-                title: "¡Éxito!",
-                text: "Usuario creado correctamente",
-                icon: "success",
-            });
+            const response = await registerClient();
+            console.log(response);
+            if (response.ok) {
+                console.log("Usario creado correctamente");
+                router.push({ path: "/" })
+                Swal.fire({
+                    title: "¡Éxito!",
+                    text: "Usuario creado correctamente",
+                    icon: "success",
+                });
+            } else {
+                Swal.fire({
+                    title: "Error",
+                    text: "La petición fallo, por favor, intentelo de nuevo",
+                    icon: "error",
+                })
+            }
             return true;
         } else {
             console.log("Error: Por favor, verifique los campos");
@@ -72,6 +84,27 @@ const validateFields = () => {
         return false;
     }
 };
+
+const registerClient = async () => {
+    const response = await fetch('http://127.0.0.1:3000/registerClient', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            'first_names': names.value,
+            'last_names': last_names.value,
+            'email': email.value,
+            'password': password.value,
+            'id_card': idDoc.value,
+        })
+    });
+    // Verificar si la primera petición fue correcta
+    if (response.ok) 
+        return response;
+    else {
+        console.error('Error en la primera petición:', response.status);
+        return response;
+    }
+}
 
 const checkPassword = (password) => {
     const tamanioValid = /^(?=.{8,15})/;
@@ -95,13 +128,13 @@ const checkEmail = (email) => {
 }
 
 const allDataCompleted = () => {
-    if (name.value !== null && birthYear.value !== '' && email.value !== null && password.value !== null && v_pass.value !== null && policyAccepted.value)
+    if (names.value !== null && last_names.value !== null && email.value !== null && password.value !== null && v_pass.value !== null && policyAccepted.value)
         return true;
     else
         return false
 }
 
-const navigateToLogin = () =>{
+const navigateToLogin = () => {
     router.push({ path: "/" });
 }
 </script>
@@ -110,14 +143,16 @@ const navigateToLogin = () =>{
 <template>
     <div class="bg-slate-100 p-5 sm:p-10 min-h-[100vh] flex items-center justify-center">
         <div class="overflow-hidden w-full xl:w-[80%]" name="formRegistro">
-            <div class="w-full sm:p-5logo lg:hidden cursor-pointer transition ease-in-out duration-200 hover:scale-105" @click="navigateToLogin()">
+            <div class="w-full sm:p-5logo lg:hidden cursor-pointer transition ease-in-out duration-200 hover:scale-105"
+                @click="navigateToLogin()">
                 <img src="../assets/SwiftShip_Logo.png" alt="Logo" class="w-[75%] mx-auto py-5">
             </div>
             <form @submit.prevent="handleSubmit">
                 <div class="flex items-center justify-center mb-10">
                     <div class="flex-none lg:w-[415px] hidden lg:block mx-10">
                         <div class="p-10 h-full flex justify-center items-center flex-col mb-60">
-                            <img src="../assets/SwiftShip_Logo.png" @click="navigateToLogin()" alt="Logo" class="max-w-xs mb-10 cursor-pointer  transition ease-in-out duration-200 hover:scale-105">
+                            <img src="../assets/SwiftShip_Logo.png" @click="navigateToLogin()" alt="Logo"
+                                class="max-w-xs mb-10 cursor-pointer  transition ease-in-out duration-200 hover:scale-105">
                             <img src="https://images.pexels.com/photos/2552131/pexels-photo-2552131.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1"
                                 alt="package" class="rounded-xl">
                         </div>
@@ -132,25 +167,20 @@ const navigateToLogin = () =>{
                         <div>
                             <div class="flex flex-col">
                                 <span class="font-bold mb-1 text-black">
-                                    <i class="fa-solid fa-user  mr-3 text-[#18BFA4]"></i>Nombre
+                                    <i class="fa-solid fa-user  mr-3 text-[#18BFA4]"></i>Nombres
                                 </span>
-                                <input type="text" v-model="name" name="name" placeholder="Nombre completo"
-                                    class="p-4 ml-1.5 input input-bordered border border-gray-200 rounded-xl w-full">
+                                <input type="text" v-model="names" placeholder="Ex: Daniel Sebastián"
+                                    class="p-4  input input-bordered border border-gray-200 rounded-xl w-full">
                             </div>
                         </div>
                         <br>
                         <div>
                             <div class="flex flex-col">
                                 <span class="font-bold mb-1 text-black">
-                                    <i class="fa-solid fa-calendar  mr-3 text-[#18BFA4]"></i>Tipo de documento de
-                                    identificación
+                                    <i class="fa-solid fa-user mr-3 text-[#18BFA4]"></i>Apellidos
                                 </span>
-                                <select id="tipeDoc"
-                                    class="bg-gray-50 ml-1.5 mt-2 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-4">
-                                    <option selected disabled>Seleccionar</option>
-                                    <option value="CI">Cédula de identidad</option>
-                                    <option value="RUC">RUC</option>
-                                </select>
+                                <input type="text" v-model="last_names" placeholder="Ex: Nuñez Gonzales"
+                                    class="p-4  input input-bordered border border-gray-200 rounded-xl w-full">
                             </div>
                         </div>
                         <br>
@@ -159,8 +189,8 @@ const navigateToLogin = () =>{
                                 <span class="font-bold mb-1 text-black">
                                     <i class="fa-solid fa-calendar  mr-3 text-[#18BFA4]"></i>Número de identificación
                                 </span>
-                                <input type="number" v-model="idDoc" name="idDoc" placeholder="1226697194"
-                                    class="p-4 ml-1.5 input input-bordered border border-gray-200 rounded-xl w-full" />
+                                <input type="number" v-model="idDoc" name="idDoc" placeholder="Ex: 1725894194"
+                                    class="p-4  input input-bordered border border-gray-200 rounded-xl w-full" />
                             </div>
                         </div>
                         <br>
@@ -170,7 +200,7 @@ const navigateToLogin = () =>{
                                     <i class="fa-solid fa-envelope  mr-3 text-[#18BFA4]"></i>Correo electrónico
                                 </span>
                                 <input type="email" v-model="email" name="email" placeholder="ejemplo@ejemplo.com"
-                                    class="p-4 ml-1.5 input input-bordered border border-gray-200 rounded-xl w-full">
+                                    class="p-4  input input-bordered border border-gray-200 rounded-xl w-full">
                             </div>
                         </div>
                         <br>
@@ -180,9 +210,8 @@ const navigateToLogin = () =>{
                                     <i class="fa-solid fa-lock  mr-3 text-[#18BFA4]"></i>Contraseña
                                 </span>
                                 <input type="password" v-model="password" id="password" name="password"
-                                    placeholder="•••••••••••" minlength="8"
-                                    maxlength="15" required
-                                    class="p-4 ml-1.5 input input-bordered border border-gray-200 rounded-xl w-full">
+                                    placeholder="•••••••••••" required
+                                    class="p-4  input input-bordered border border-gray-200 rounded-xl w-full">
                             </div>
                         </div>
                         <br>
@@ -193,9 +222,8 @@ const navigateToLogin = () =>{
                                     contraseña
                                 </span>
                                 <input type="password" v-model="v_pass" id="v_pswd" name="v_pswd"
-                                    placeholder="•••••••••••" @input="checkPassword($event.target.value)" minlength="8"
-                                    maxlength="15" required
-                                    class="p-4 input ml-1.5 input-bordered border border-gray-200 rounded-xl w-full">
+                                    placeholder="•••••••••••" @input="checkPassword($event.target.value)" required
+                                    class="p-4 input  input-bordered border border-gray-200 rounded-xl w-full">
                             </div>
                         </div>
                         <div>

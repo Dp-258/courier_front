@@ -1,7 +1,237 @@
 <script setup>
-import { ref, watch } from 'vue'
-const toUppercase = () => {
+import { ref, onMounted, onBeforeMount } from 'vue'
+import { useUserStore } from "@/stores/user.js";
+import Swal from "sweetalert2";
+import { storage } from '../../../firebase/storage';
+import { v4 as uuidv4 } from 'uuid';
+import { ref as fireStorageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 
+
+const userStore = useUserStore();
+const props = defineProps(['sidebarActive']);
+console.log(props.sidebarActive);
+const alertName = ref();
+const description = ref();
+const store = ref();
+const carrier = ref();
+const trackingCode = ref();
+const packageValue = ref();
+const address = ref();
+const city = ref();
+const postal_num = ref();
+const billURL = ref();
+const policyAccepted = ref(false);
+//Subida de imagenes
+const showFileSizeError = ref(false);
+const files = ref(null);
+//Carga de prealertas
+const prealertas = ref();
+const original_prealertas = ref();
+const searchCode = ref('');
+// Combo box de cargas
+const stores = ref();
+const carriers = ref();
+//Current prealert
+const currentPrealert = ref();
+//Table navigation 
+const currentPage = ref(1);
+const rowsPerPage = ref(5);
+
+onBeforeMount(async () => {
+    if (!userStore.userData) {
+        await userStore.getUserInfo();
+        if (userStore.userData)
+            alertName.value = await userStore.userData.first_names + " " + await userStore.userData.last_names;
+    }
+
+    const response = await fetch(`http://127.0.0.1:3000/pedidos/client/${userStore.userData.email}`, {
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+    });
+    await loadStores();
+    await loadCarriers();
+    if (!response.ok) {
+        prealertas.value = [];
+        original_prealertas.value = [];
+    } else {
+        prealertas.value = await response.json();
+        original_prealertas.value = JSON.parse(JSON.stringify(prealertas.value));
+    }
+});
+
+const searchByCode = async (code) => {
+    if (code == null || code == '' || code == ' ')
+        code = 'PAP';
+
+    const response = await fetch(`http://127.0.0.1:3000/pedidos/code/${code}/email/${userStore.userData.email}`, {
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+    });
+    if (!response.ok) {
+        throw new Error('Hubo un problema al obtener los datos del usuario.');
+    }
+    prealertas.value = await response.json();
+}
+
+const deletePrealert = (data) => {
+    Swal.fire({
+        title: `¿Estas seguro de que quieres eliminar la pre-alerta ${data.code}?`,
+        text: "Esta acción no podrá ser recuperada",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Eliminar",
+        confirmButtonColor: "#d33",
+        cancelButtonText: `Cancelar`
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            const response = await fetch(`http://127.0.0.1:3000/pedidos/${data.id}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+            });
+            Swal.fire("Prealerta eliminada correctamente!", "", "success").then(() => {
+                window.location.reload();
+            });
+            if (!response.ok) {
+                throw new Error('Hubo un problema al obtener los datos del usuario.');
+            }
+        }
+    });
+
+}
+
+const loadStores = async () => {
+    const response = await fetch(`http://127.0.0.1:3000/tiendas`, {
+        headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) {
+        throw new Error('Hubo un problema al obtener los datos de las tiendas.');
+    }
+    stores.value = await response.json();
+    stores.value = stores.value.filter(store => store.active);
+}
+
+const loadCarriers = async () => {
+    const response = await fetch(`http://127.0.0.1:3000/carriers`, {
+        headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) {
+        throw new Error('Hubo un problema al obtener los datos de los carriers.');
+    }
+    carriers.value = await response.json();
+    carriers.value = carriers.value.filter(carrier => carrier.active);
+}
+
+const resetTable = () => {
+    prealertas.value = JSON.parse(JSON.stringify(original_prealertas.value));
+    searchCode.value = '';
+}
+
+const uploadPrealert = async () => {
+    try {
+        billURL.value = await uploadFiles();
+    } catch (error) {
+        console.error('Ocurrió un error al subir los archivos:', error);
+    }
+
+    const response = await fetch('http://127.0.0.1:3000/pedidos/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            "receiver": alertName.value,
+            "email": userStore.userData.email,
+            "cliente": userStore.userData.id,
+            "carrier": carrier.value,
+            "store": store.value,
+            "description": description.value,
+            "tracking_code": trackingCode.value,
+            "purchase_value": packageValue.value,
+            "address": address.value,
+            "city": city.value,
+            "postal_num": postal_num.value,
+            "bill": billURL.value[0],
+        })
+    });
+    // Verificar si la primera petición fue correcta
+    if (response.ok) {
+        Swal.fire({
+            title: "¡Éxito!",
+            text: "Prealerta creada correctamente",
+            icon: "success",
+        }).then(() => {
+            window.location.reload();
+        });
+    } else {
+        console.error('Error al desarrollar la peticion:', response.status);
+        return response;
+    }
+}
+
+const allDataCompleted = () => {
+    if (alertName.value == null || description.value == null || store.value == null || carrier.value == null
+        || trackingCode.value == null || packageValue.value == null || files.value == null || !policyAccepted.value || showFileSizeError.value) {
+        return false;
+    } else
+        return true;
+}
+
+//Verificar que el peso no sea mas de 25mb
+const handleFileUpload = async (event) => {
+    const selectedFiles = event.target.files;
+    let totalFileSize = 0;
+    showFileSizeError.value = false;
+
+    for (let i = 0; i < selectedFiles.length; i++) {
+        const fileSize = selectedFiles[i].size / (1024 * 1024); // Convertir bytes a megabytes
+        totalFileSize += fileSize;
+
+        if (totalFileSize > 10) {
+            showFileSizeError.value = true;
+            totalFileSize -= fileSize;
+            return; // Mostrar el mensaje de error si la suma supera el límite
+        }
+    }
+
+    if (!showFileSizeError.value) {
+        files.value = Array.from(selectedFiles);
+    }
+}
+
+//Subir archivos a storage
+const uploadFiles = async () => {
+    const uploadedFileURLs = [];
+    try {
+        const filesArray = [...files.value]
+        await Promise.all(filesArray.map(async file => {
+            const fileName = uuidv4();
+            const storageRef = fireStorageRef(storage, `bills/prealertsBills/${userStore.email}/${fileName}`)
+            // Reducir la imagen si es una imagen
+            const metadata = {
+                contentType: file.type
+            }
+            await uploadBytes(storageRef, file, metadata)
+            const downloadURL = await getDownloadURL(storageRef);
+            uploadedFileURLs.push(downloadURL);
+        }));
+        return uploadedFileURLs;
+    } catch (error) {
+        console.error(error);
+        alert('Error subiendo las imágenes');
+    }
+
+}
+
+const translateOrderStatus = (status) => {
+    switch (status) {
+        case 'waiting':
+            return 'En espera de entrega'
+        case 'received':
+            return 'Recibido / Paquete generado'
+        case 'deny':
+            return 'Rechazado'
+
+        default:
+            break;
+    }
 }
 </script>
 <template>
@@ -20,7 +250,8 @@ const toUppercase = () => {
     </div>
     <div>
         <div title="Crear prealerta" onclick="create_prealert.showModal()" class="w-fit">
-            <button class="flex items-center justify-center rounded-xl bg-amber-400 cursor-pointer transition-all duration-200 hover:scale-105 hover:shadow-xl p-2 px-3">
+            <button
+                class="flex items-center justify-center rounded-xl bg-amber-400 cursor-pointer transition-all duration-200 hover:scale-105 hover:shadow-xl p-2 px-3">
                 <i class="fa-solid fa-plus fa-sm mr-3"></i>
                 <div class="font-medium">
                     Crear prealerta
@@ -31,14 +262,18 @@ const toUppercase = () => {
     </div>
     <br>
     <!-- Search bar -->
-    <form class="flex items-center w-3/6 min-w-[420px]">
+    <form @submit.prevent="searchByCode(searchCode)" class="flex items-center w-3/6 min-w-[420px]">
         <div class="flex w-full">
-            <input type="text" id="voice-search"
+            <input type="text" v-model="searchCode"
                 class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-l-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-5 p-2.5"
-                placeholder="Buscar en el directorio de prealerta por código..." required>
-            <div
+                placeholder="Buscar en el directorio de prealerta por código...">
+            <button type="submit"
                 class="cursor-pointer bg-gray-200 border border-gray-300 focus:ring-blue-500 focus:border-blue-500 rounded-r-lg px-3 content-center hover:bg-gray-300">
                 <i class="fa-solid fa-magnifying-glass text-black"></i>
+            </button>
+            <div v-if="searchCode != ''" @click="resetTable()"
+                class="cursor-pointer bg-gray-200 border border-gray-300 focus:ring-blue-500 focus:border-blue-500 rounded-lg px-3 content-center hover:bg-gray-300 ml-5">
+                <i class="fa-solid fa-arrows-rotate text-black"></i>
             </div>
         </div>
     </form>
@@ -57,7 +292,7 @@ const toUppercase = () => {
                         Tienda
                     </th>
                     <th scope="col" class="px-6 py-3">
-                        Carrier
+                        Contenido
                     </th>
                     <th scope="col" class="px-6 py-3 text-center">
                         Acciones
@@ -65,30 +300,48 @@ const toUppercase = () => {
                 </tr>
             </thead>
             <transition name="fadeTable">
-                <tr class="border-b">
-                    <th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-                        Apple MacBook Pro 17"
-                    </th>
-                    <td class="px-6 py-4">
-                        Silver
-                    </td>
-                    <td class="px-6 py-4">
-                        Laptop
-                    </td>
-                    <td class="px-6 py-4">
-                        $2999
-                    </td>
-                    <td class="px-6 py-4 text-center">
-                        <i onclick="details_modal.showModal()" title="Editar prealerta"
-                            class="fa-solid fa-pencil fa-xl text-slate-950 cursor-pointer hover:text-amber-600 transition-all duration-300 mr-3"></i>
-                        <i onclick="details_modal.showModal()" title="Ver detalle"
-                            class="fa-solid fa-square-caret-down fa-2xl cursor-pointer hover:text-amber-600 transition-all duration-300"></i>
-
-                    </td>
-                </tr>
+                <tbody v-if="prealertas">
+                    <tr v-for="(prealertaRow, rowIndex) in prealertas.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)"
+                        :key="rowIndex" class="border-b">
+                        <th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+                            {{ prealertaRow.code }}
+                        </th>
+                        <td class="px-6 py-4">
+                            {{ prealertaRow.order_status }}
+                        </td>
+                        <td class="px-6 py-4">
+                            {{ prealertaRow.store_name }}
+                        </td>
+                        <td class="px-6 py-4">
+                            {{ prealertaRow.description }}
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <i onclick="details_modal.showModal()" @click="currentPrealert = prealertaRow"
+                                title="Detalle de la prealerta"
+                                class="fa-solid fa-square-caret-down fa-2xl cursor-pointer hover:text-amber-600 transition-all duration-300 mr-3"></i>
+                            <i v-if="prealertaRow.order_status != 'received'" @click="deletePrealert(prealertaRow)"
+                                title="Eliminar prealerta"
+                                class="fa-solid fa-trash-can fa-xl text-slate-700 cursor-pointer hover:text-red-600 transition-all duration-300"></i>
+                        </td>
+                    </tr>
+                </tbody>
             </transition>
 
         </table>
+        <transition v-if="prealertas" name="fadeTable">
+            <div class="text-right mr-2 my-2">
+                <button title="Página anterior" class="p-1 px-2 rounded-xl bg-gray-800 text-white disabled:bg-gray-300"
+                    @click="currentPage--" :disabled="currentPage === 1">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <span title="Página actual" class="p-1 px-2 rounded-xl border border-gray-800 mx-2 cursor-default">{{
+                    currentPage }}</span>
+                <button title="Siguiente página" class="p-1 px-2 rounded-xl bg-gray-800 text-white disabled:bg-gray-300"
+                    @click="currentPage++" :disabled="currentPage === Math.ceil(prealertas.length / rowsPerPage)">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            </div>
+        </transition>
     </div>
     <!--Modals-->
     <!--Create prealert modal-->
@@ -116,9 +369,9 @@ const toUppercase = () => {
                         </div>
                         <span class="text-xs ml-3">La compra y factura, deben estar a nombre de esta persona.</span>
                         <div class="ml-3">
-                            <input type="text"
+                            <input type="text" v-model="alertName"
                                 class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-5/6 pl-2.5 p-2.5"
-                                placeholder="Daniel Bonilla" required>
+                                placeholder="Ex: Daniel Bonilla" required>
                         </div>
                     </div>
                     <div class="mb-4">
@@ -126,7 +379,7 @@ const toUppercase = () => {
                             • Descripción de la compra
                         </div>
                         <div class="ml-3">
-                            <input type="text"
+                            <input type="text" v-model="description"
                                 class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-5/6 pl-2.5 p-2.5"
                                 placeholder="Ex: Zapatos deportivos Nike" required>
                         </div>
@@ -136,15 +389,11 @@ const toUppercase = () => {
                             • Tienda donde se realizo la compra
                         </div>
                         <div class="ml-3">
-                            <select
+                            <select v-model="store"
                                 class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-5/6 pl-2.5 p-2.5">
                                 <option selected disabled>Seleccionar</option>
-                                <option value="A">Amazon</option>
-                                <option value="B">E-bay</option>
-                                <option value="C">Target</option>
-                                <option value="D">Shein</option>
-                                <option value="E">Victoria Secret</option>
-                                <option value="F">Otras</option>
+                                <option v-for="(store, index) in stores" :key="store" :value="store.id">{{ store.name }}
+                                </option>
                             </select>
                         </div>
                     </div>
@@ -153,15 +402,49 @@ const toUppercase = () => {
                             • Empresa de transporte
                         </div>
                         <div class="ml-3">
-                            <select
+                            <select v-model="carrier"
                                 class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-5/6 pl-2.5 p-2.5">
                                 <option selected disabled>Seleccionar</option>
-                                <option value="A">Amazon</option>
-                                <option value="B">DHL</option>
-                                <option value="C">Fedex</option>
-                                <option value="D">USPS</option>
-                                <option value="F">Otros</option>
+                                <option v-for="(carrier, index) in carriers" :key="carrier" :value="carrier.id">{{
+                                    carrier.name }}</option>
                             </select>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <div class="font-medium">
+                            • Dirección de entrega - Ciudad
+                        </div>
+                        <div class="ml-3">
+                            <select v-model="city"
+                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-5/6 pl-2.5 p-2.5"
+                                placeholder="Ex: Av. Mariana de Jesus y 24 de mayo" required>
+                                <option value="quito">Quito</option>
+                                <option value="guayaquil">Guayaquil</option>
+                                <option value="cuenca">Cuenca</option>
+                                <option value="machala">Machala</option>
+                                <option value="santo_domingo">Santo Domingo</option>
+                                <option value="manta">Manta</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <div class="font-medium">
+                            • Dirección de entrega - Código postal
+                        </div>
+                        <div class="ml-3">
+                            <input type="number" v-model="postal_num"
+                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-5/6 pl-2.5 p-2.5"
+                                placeholder="Ex: 170152" required>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <div class="font-medium">
+                            • Dirección de entrega - Detalle
+                        </div>
+                        <div class="ml-3">
+                            <input type="text" v-model="address"
+                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-5/6 pl-2.5 p-2.5"
+                                placeholder="Ex: Av. Mariana de Jesus y 24 de mayo" required>
                         </div>
                     </div>
                     <div class="mb-4">
@@ -169,7 +452,7 @@ const toUppercase = () => {
                             • Código de tracking
                         </div>
                         <div class="ml-3">
-                            <input type="text"
+                            <input type="text" v-model="trackingCode"
                                 class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-5/6 pl-2.5 p-2.5"
                                 placeholder="Ex: RHLSU56825" required>
                         </div>
@@ -184,7 +467,7 @@ const toUppercase = () => {
                                 class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-l-lg focus:ring-blue-500 focus:border-blue-500 block pl-2.5 p-2.5">
                                 USD $
                             </div>
-                            <input type="text"
+                            <input type="number" v-model="packageValue"
                                 class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-r-lg focus:ring-blue-500 focus:border-blue-500 block w-4/6 pl-2.5 p-2.5"
                                 placeholder="Ex: 12.35" required>
                         </div>
@@ -194,10 +477,13 @@ const toUppercase = () => {
                             • Sube la factura de tu compra
                         </div>
                         <div class="ml-3 items-center flex">
-                            <input type="file"
+                            <input type="file" accept="image/*" v-on:change="handleFileUpload"
                                 class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-5/6 pl-2.5 p-2.5"
                                 placeholder="Ex: 12.35" required>
                         </div>
+                        <span v-if="showFileSizeError" class="ml-3 text-red-500">
+                            El tamaño del archivo debe ser inferior a 10MB.
+                        </span>
                     </div>
                 </div>
 
@@ -221,11 +507,15 @@ const toUppercase = () => {
                 </div>
             </div>
             <div class="text-center">
-                <button class="rounded-xl bg-amber-300 cursor-pointer p-4
-                 transition-all duration-200 hover:bg-amber-400 hover:scale-105 hover:shadow-xl">
-                    <i class="fa-solid fa-bell"></i>
-                    Crear prealerta
-                </button>
+                <form method="dialog">
+                    <button @click="uploadPrealert" class="rounded-xl bg-amber-300 cursor-pointer p-4
+                     transition-all duration-200 hover:bg-amber-400 hover:scale-105 hover:shadow-xl
+                     disabled:disabled:cursor-not-allowed disabled:text-gray-600 disabled:bg-slate-100"
+                        :disabled="!allDataCompleted()">
+                        <i class="fa-solid fa-bell"></i>
+                        Crear prealerta
+                    </button>
+                </form>
             </div>
         </div>
         <!--Btn para cerrar-->
@@ -266,81 +556,89 @@ const toUppercase = () => {
     </dialog>
     <!--Details Modal-->
     <dialog id="details_modal" class="modal transition-all duration-500">
-        <div class="flex ">
-            <div>
-                <div class="modal-box min-w-[400px] sm:min-w-[700px] w-auto max-w-2xl">
-                    <form method="dialog">
-                        <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
-                    </form>
-                    <div class="flex items-center text-center justify-center">
-                        <h3 class="font-bold text-2xl">DETALLE DEL PAQUETE</h3>
-                    </div>
-                    <br>
-                    <div>
-                        <div class="flex items-center justify-between">
-                            <div class="flex border border-gray-200 p-2 shadow shadow-amber-600 w-4/6">
-                                <div class="content-center mr-5">
-                                    <i class="fa-solid fa-box fa-xl text-amber-600"></i>
-                                </div>
-                                <div class="text-lg font-medium w-fit">
-                                    <div>
-                                        Codigo de SwiftShip: PCDS06345631
-                                    </div>
-                                    <div class="w-fit">
-                                        Tracking Code: KADNAAA0657
-                                    </div>
-                                    <div class="flex items-center">
-                                        Estado: En entrega
-                                        <i class="fa-solid fa-truck-fast fa-xs text-amber-500 ml-2 mt-1"></i>
-                                    </div>
-                                </div>
+        <div class="modal-box min-w-[400px] sm:min-w-[700px] w-auto max-w-2xl">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+            </form>
+            <div class="flex items-center text-center justify-center">
+                <h3 class="font-bold text-2xl">DETALLE DE LA PREALERTA</h3>
+            </div>
+            <br>
+            <div v-if="currentPrealert">
+                <div class="flex items-center justify-between">
+                    <div class="flex border border-gray-200 p-2 shadow shadow-amber-600 w-4/6">
+                        <div class="content-center mr-5">
+                            <i class="fa-solid fa-box fa-xl text-amber-600"></i>
+                        </div>
+                        <div class="text-lg font-medium w-fit">
+                            <div>
+                                Codigo de SwiftShip: {{ currentPrealert.code }}
                             </div>
-                            <div style="text-align: -webkit-center;" class="w-2/6 mr-20">
-                                <!-- línea vertical verde con un punto en el inicio y otro en el final, el class se cambia segun el estado -->
-                                <div class="relative">
-                                    <div class="h-2 w-2 bg-green-500 border border-green-500 rounded-full"></div>
-                                    <div class="text-xs absolute -top-2 -right-10">En bodega: 14/05/2024</div>
-                                </div>
-                                <div class="h-[20px] w-1 bg-green-500"> </div>
-                                <div class="relative">
-                                    <div class="h-2 w-2 bg-white border border-green-500 rounded-full"></div>
-                                    <div class="text-xs absolute -top-2 -right-10">En bodega: 14/05/2024</div>
-                                </div>
-                                <div class="h-[20px] w-1 bg-green-500"> </div>
-                                <div class="relative">
-                                    <div class="h-2 w-2 bg-white border border-green-500 rounded-full"></div>
-                                    <div class="text-xs absolute -top-2 -right-10">En transito: 14/05/2024</div>
-                                </div>
-                                <div class="h-[20px] w-1 bg-green-500"> </div>
-                                <div class="relative">
-                                    <div class="h-2 w-2 bg-white border border-green-500 rounded-full"></div>
-                                    <div class="text-xs absolute -top-2 -right-10">En aduana: 14/05/2024</div>
-                                </div>
-                                <div class="h-[20px] w-1 bg-green-500"> </div>
-                                <div class="relative">
-                                    <div class="h-2 w-2 bg-white border border-green-500 rounded-full"></div>
-                                    <div class="text-xs absolute -top-2 -right-10">En entrega: 14/05/2024</div>
-                                </div>
+                            <div class="w-fit">
+                                Tracking Code: {{ currentPrealert.tracking_code }}
                             </div>
                         </div>
-                        <br>
-                        <hr>
-                        <div class="mt-3 mx-5">
-                            <div><span class="font-medium my-2"> Destinatario:</span> Jhoel Alejandro Muela</div>
-                            <div><span class="font-medium my-2"> Contenido:</span> Audifonos inalámbricos redmi buds 2
+                    </div>
+                    <div style="text-align: -webkit-center;" class="w-2/6">
+                        <!-- Icono que representa el estado de la prealerta -->
+                        <div class="transition ease-in-out duration-200 hover:scale-105 w-fit">
+                            <div>
+                                <i class="fa-solid text-[4em] text-amber-500 ml-2 mt-1" :class="{
+                                    'fa-hourglass-half': currentPrealert.order_status == 'waiting',
+                                    'fa-warehouse': currentPrealert.order_status == 'received',
+                                    'fa-ban text-red-400': currentPrealert.order_status == 'deny',
+                                    'fa-question-circle': !['waiting', 'received', 'deny'].includes(currentPrealert.order_status)
+                                }">
+                                </i>
                             </div>
-                            <div><span class="font-medium my-2"> Peso:</span> 0.44 LB</div>
-                            <div><span class="font-medium my-2"> Precio del flete:</span> $7.52</div>
-                            <div><span class="font-medium my-2"> Descripción:</span> </div>
+                            <div class="cursor-default text-sm mt-1">
+                                {{ translateOrderStatus(currentPrealert.order_status) }}
+                            </div>
                         </div>
                     </div>
                 </div>
                 <br>
-                <!--Btn para cerrar-->
-                <form method="dialog" class="modal-backdrop">
-                    <button>close</button>
-                </form>
+                <hr>
+                <div class="mt-3 mx-5" style="display: grid; grid-template-columns: 180px 1fr;">
+                    <div class="border-b border-slate-400 py-1"><span class="font-medium"
+                            style="display: inline-block">Destinatario:</span></div>
+                    <div class="border-b border-slate-400 py-1">{{ currentPrealert.cliente_name }}</div>
+
+                    <div class="border-b border-slate-400 py-1"><span class="font-medium"
+                            style="display: inline-block">Contenido:</span></div>
+                    <div class="border-b border-slate-400 py-1">{{ currentPrealert.description }}</div>
+
+                    <div class="border-b border-slate-400 py-1"><span class="font-medium"
+                            style="display: inline-block">Tienda:</span></div>
+                    <div class="border-b border-slate-400 py-1">{{ currentPrealert.store_name }}</div>
+
+                    <div class="border-b border-slate-400 py-1"><span class="font-medium"
+                            style="display: inline-block">Carrier:</span></div>
+                    <div class="border-b border-slate-400 py-1">{{ currentPrealert.carrier_name }}</div>
+
+                    <div class="border-b border-slate-400 py-1"><span class="font-medium"
+                            style="display: inline-block">Valor declarado:</span></div>
+                    <div class="border-b border-slate-400 py-1">{{ currentPrealert.purchase_value }}</div>
+
+                    <div class="border-b border-slate-400 py-1"><span class="font-medium"
+                            style="display: inline-block">Factura:</span></div>
+                    <div class="border-b border-slate-400 py-1"><a
+                            class="text-blue-600 hover:text-blue-800 hover:underline" :href="currentPrealert.bill"
+                            target="_blank">Ver factura</a></div>
+
+                    <div v-if="currentPrealert.observation" class="border-b border-slate-400 py-1"><span
+                            class="font-medium" style="display: inline-block">Observaciones:</span></div>
+                    <div class="border-b border-slate-400 py-1" v-if="currentPrealert.observation">{{
+                        currentPrealert.observation }}</div>
+                </div>
+
+
             </div>
         </div>
+        <br>
+        <!--Btn para cerrar-->
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
+        </form>
     </dialog>
 </template>

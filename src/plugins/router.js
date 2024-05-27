@@ -3,6 +3,11 @@ import { createRouter, createWebHistory } from "vue-router";
 const routes = [
     {
         path: '',
+        name: 'home',
+        component: () => import('@/views/LoginView.vue')
+    },
+    {
+        path: '/login',
         name: 'login',
         component: () => import('@/views/LoginView.vue')
     },
@@ -18,13 +23,8 @@ const routes = [
     },
     {
         path: '/dashboard',
-        name: 'dashboard',
         component: () => import('@/views/DashboardView.vue'),
         children: [
-            {
-                path: '', 
-                redirect: { name: 'userPrealerts' } 
-            },
             {
                 path: '/adminPackages',
                 name: 'adminPackages',
@@ -50,6 +50,12 @@ const routes = [
                 props: true
             },
             {
+                path: '/partners',
+                name: 'partners',
+                component: () => import('@/components/admin/partners.vue'),
+                props: true
+            },
+            {
                 path: '/userPrealerts',
                 name: 'userPrealerts',
                 component: () => import('@/components/user/userPrealerts.vue'),
@@ -60,7 +66,13 @@ const routes = [
                 name: 'userDashboard',
                 component: () => import('@/components/user/userDashboard.vue'),
                 props: true
-            }
+            },
+            {
+                path: '/listUserPackages',
+                name: 'listUserPackages',
+                component: () => import('@/components/user/listOfUserPackages.vue'),
+                props: true
+            },
         ]
     },
 ]

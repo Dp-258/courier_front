@@ -16,7 +16,7 @@ onBeforeMount(async () => {
     if (!userStore.userData) {
         await userStore.getUserInfo();
     }
-    const response = await fetch(`http://127.0.0.1:3000/paquetes`, {
+    const response = await fetch(`http://127.0.0.1:3000/paquetes/client/${userStore.userData.email}`, {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
     });
@@ -24,13 +24,14 @@ onBeforeMount(async () => {
         throw new Error('Hubo un problema al obtener los datos del usuario.');
     }
     paquetes.value = await response.json();
+
     original_paquetes.value = JSON.parse(JSON.stringify(paquetes.value));
 })
 
 const searchByCode = async (code) => {
     if (code == null || code == '' || code == ' ')
         code = 'PIP';
-    const response = await fetch(`http://127.0.0.1:3000/api/paquetes/code/${code}`, {
+        const response = await fetch(`http://127.0.0.1:3000/paquetes/code/${code}/email/${userStore.userData.email}`, {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
     });
@@ -54,8 +55,8 @@ const translateStatus = (status) => {
         case 'sent':
             return 'En tránsito al país'
 
-        case 'received':
-            return 'Entregado'
+        case 'stored':
+            return 'En bodega'
 
         case 'aduana':
             return 'En aduana'
@@ -137,6 +138,9 @@ const translateStatus = (status) => {
                             {{ packageRow.description }}
                         </td>
                         <td class="px-6 py-4 text-center">
+                            <i v-if="!packageRow.payment_voucher" onclick="details_modal.showModal()"
+                                @click="currentPackage = packageRow" title="Pagar costos de envio"
+                                class="fa-solid fa-receipt fa-2xl text-amber-600 cursor-pointer hover:text-amber-700 transition-all duration-300 mr-3"></i>
                             <i onclick="details_modal.showModal()" @click="currentPackage = packageRow"
                                 title="Detalle de la prealerta"
                                 class="fa-solid fa-square-caret-down fa-2xl cursor-pointer hover:text-amber-600 transition-all duration-300 mr-3"></i>
@@ -172,6 +176,12 @@ const translateStatus = (status) => {
                 <h3 class="font-bold text-2xl">DETALLE DEL PAQUETE</h3>
             </div>
             <br>
+            <div class="font-medium" v-if="!currentPackage.payment_voucher">
+                Su paquete se encuentra listo para ser enviado, por favor realice el pago del flete
+                corresponiente dando click
+                <span class="text-amber-500 hover:text-amber-600 underline cursor-pointer">aquí.</span>
+            </div>
+            <br>
             <div v-if="currentPackage">
                 <div class="flex items-center justify-between">
                     <div class="flex border border-gray-200 p-2 shadow shadow-amber-600 w-4/6">
@@ -196,6 +206,10 @@ const translateStatus = (status) => {
                                     'fa-question-circle': !['stored', 'sent', 'aduana', 'onway', 'received'].includes(currentPackage.package_status)
                                 }">
                                 </i>
+                            </div>
+                            <div class="text-right text-amber-500 hover:text-amber-600 underline cursor-pointer"
+                                v-if="!currentPackage.payment_voucher">
+                                Por pagar: $ {{ currentPackage.freight_cost }}
                             </div>
                         </div>
                     </div>
@@ -270,8 +284,8 @@ const translateStatus = (status) => {
                     <div v-if="currentPackage.payment_voucher" class="border-b border-slate-400 py-1"><span
                             class="font-medium" style="display: inline-block">Comprobante de pago:</span></div>
                     <div v-if="currentPackage.payment_voucher" class="border-b border-slate-400 py-1"><a
-                            class="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer" target="_blank"
-                            :href="currentPackage.payment_voucher">
+                            class="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer" 
+                            :href="currentPackage.proof_payment_voucher" target="_blank">
                             Ver factura
                         </a>
                     </div>
